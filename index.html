@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#282219" />
+  <link rel="manifest" href="manifest.json" />
+  <title>냥이가르드 — 클래식 쿼터뷰 고양이 포획·육성 프로토타입</title>
+  <link rel="stylesheet" href="css/style.css?v=20261124_p2" />
+</head>
+<body>
+  <div id="game-root">
+    <!-- 메인 쿼터뷰 게임 캔버스 -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 상단 HUD -->
+    <header id="hud-top">
+      <!-- 좌상단: 클래식 양피지 스타일 플레이어 / 타겟 정보 -->
+      <div class="rpg-panel hud-profile">
+        <div class="profile-row">
+          <div class="profile-badge" id="follower-badge" title="동행 중인 고양이">
+            <img id="follower-icon" src="assets/cats/cheese_tabby.png" alt="고양이" />
+          </div>
+          <div class="profile-stats">
+            <div class="stat-line">
+              <span class="title-serif">냥이 마을</span>
+              <span class="rep-pill" id="hud-rep">명성 Lv.1</span>
+            </div>
+            <div class="stat-sub">
+              <span id="hud-coins">🪙 120 은화</span>
+              <span id="hud-dex-count">📖 0/12</span>
+            </div>
+            <div class="follower-buff" id="hud-follower-text">동행 없음 (쉼터에서 지정)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 중앙 상단: 타겟 야생 고양이 2-게이지 (교감 시 표시) -->
+      <div class="rpg-panel hud-target hidden" id="hud-target">
+        <div class="target-header">
+          <img id="target-portrait" src="" alt="" />
+          <div class="target-meta">
+            <div class="target-name-row">
+              <span id="target-name" class="title-serif">치즈 태비</span>
+              <span id="target-rarity" class="rarity-tag rarity-common">일반</span>
+            </div>
+            <div class="target-trait" id="target-trait">선호: 말린 멸치 · 성격: 먹보</div>
+          </div>
+        </div>
+        <div class="gauge-group">
+          <div class="gauge-row">
+            <span class="gauge-label">친밀</span>
+            <div class="gauge-track"><div class="gauge-fill trust-fill" id="bar-trust"></div></div>
+            <span class="gauge-val" id="val-trust">0%</span>
+          </div>
+          <div class="gauge-row">
+            <span class="gauge-label">경계</span>
+            <div class="gauge-track"><div class="gauge-fill alert-fill" id="bar-alert"></div></div>
+            <span class="gauge-val" id="val-alert">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우상단: 시간·날씨·메뉴 버튼 -->
+      <div class="hud-top-right">
+        <div class="rpg-panel hud-env">
+          <button class="env-btn" id="btn-time" title="시간대 전환 (낮/노을/밤)">☀️ 낮</button>
+          <button class="env-btn" id="btn-weather" title="날씨 전환 (맑음/비)">🌤️ 맑음</button>
+          <button class="env-btn" id="btn-zoom" title="화면 배율 전환">🔍</button>
+          <button class="env-btn mobile-only-btn" id="btn-fullscreen" title="전체화면 / 가로모드">⛶</button>
+          <button class="env-btn" id="btn-sound" title="효과음 켜기/끄기">🔊</button>
+        </div>
+        <div class="hud-menu-row">
+          <button class="rpg-btn" id="btn-open-shelter">🏠 쉼터 <span class="badge-dot hidden" id="badge-gift">!</span></button>
+          <button class="rpg-btn" id="btn-open-dex">📖 도감</button>
+          <button class="rpg-btn" id="btn-open-quest">📜 의뢰</button>
+          <button class="rpg-btn" id="btn-open-help">❓</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 상단 중앙 토스트 알림 -->
+    <div id="toast-container"></div>
+
+    <!-- 깃털 낚시대 교감 미니바 (교감 놀이 시 화면 중앙 하단 팝업) -->
+    <div class="rpg-panel toy-minigame hidden" id="toy-minigame">
+      <div class="toy-title">🪶 타이밍에 맞춰 터치 / Space!</div>
+      <div class="toy-bar">
+        <div class="toy-zone" id="toy-zone"></div>
+        <div class="toy-cursor" id="toy-cursor"></div>
+      </div>
+      <button class="rpg-btn primary-btn" id="btn-toy-hit">지금 흔들기!</button>
+    </div>
+
+    <!-- 모바일 가상 조이스틱 (좌하단) -->
+    <div id="mobile-joystick" aria-hidden="true">
+      <div id="joystick-base">
+        <div id="joystick-knob"></div>
+      </div>
+    </div>
+
+    <!-- 우하단 조작 액션 버튼 (PC/모바일 공용 편리 버튼) -->
+    <div id="action-controls">
+      <button class="action-circle sneak-btn" id="btn-sneak" title="살금살금 걷기 (Shift)">
+        <span class="act-ico" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="#f3e2bc">
+            <circle cx="7" cy="9" r="2.2"/><circle cx="12" cy="7" r="2.2"/><circle cx="17" cy="9" r="2.2"/>
+            <path d="M12 11.5c-3.1 0-5.4 2.1-5.4 4.5 0 1.6 1.2 2.7 2.8 2.7 1 0 1.8-.4 2.6-.4s1.6.4 2.6.4c1.6 0 2.8-1.1 2.8-2.7 0-2.4-2.3-4.5-5.4-4.5z"/>
+          </svg>
+        </span>
+        <span class="act-txt">살금</span>
+      </button>
+      <button class="action-circle main-act-btn" id="btn-interact" title="도구 사용 / 시설 이용 (Space)">
+        <span class="act-ico" id="act-main-ico">🐟</span>
+        <span class="act-txt" id="act-main-txt">사용</span>
+      </button>
+    </div>
+
+    <!-- 하단 중앙 클래식 RPG 5칸 퀵슬롯 -->
+    <footer id="hud-bottom">
+      <div class="rpg-panel quickbar" id="quickbar">
+        <!-- JS에서 5칸 슬롯 렌더링 -->
+      </div>
+      <div class="control-hint" id="control-hint">
+        클릭/터치·WASD 이동 · Shift 살금살금 · 1~5 도구 선택 · Space 사용
+      </div>
+    </footer>
+
+    <!-- ========= 모달: 고양이 쉼터 (육성실) ========= -->
+    <div class="modal-backdrop hidden" id="modal-shelter">
+      <div class="rpg-panel modal-window modal-wide">
+        <div class="modal-header">
+          <h2 class="title-serif">🏠 고양이 쉼터 (여관)</h2>
+          <div class="modal-header-meta">
+            <span id="shelter-cap">수용 0 / 6</span>
+            <button class="close-btn" data-close="modal-shelter">✕</button>
+          </div>
+        </div>
+        <div class="modal-body shelter-layout">
+          <div class="shelter-lounge" id="shelter-lounge">
+            <div class="lounge-hearth-glow"></div>
+            <div class="lounge-label">벽난로가 따뜻한 쉼터 실내 — 고양이를 선택해 돌봐주세요</div>
+            <div class="lounge-cats" id="lounge-cats"></div>
+          </div>
+          <div class="shelter-detail" id="shelter-detail">
+            <div class="empty-note">입주한 고양이를 선택하면 쓰다듬기, 간식 주기, 동행 지정이 가능합니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========= 모달: 사료·용품 상점 ========= -->
+    <div class="modal-backdrop hidden" id="modal-shop">
+      <div class="rpg-panel modal-window">
+        <div class="modal-header">
+          <h2 class="title-serif">🏪 냥이 잡화점 (사료·용품 상점)</h2>
+          <div class="modal-header-meta">
+            <span id="shop-coins">🪙 120 은화</span>
+            <button class="close-btn" data-close="modal-shop">✕</button>
+          </div>
+        </div>
+        <div class="modal-tabs">
+          <button class="tab-btn active" data-shop-tab="buy">사료·간식</button>
+          <button class="tab-btn" data-shop-tab="toy">장난감 공방</button>
+          <button class="tab-btn" data-shop-tab="pharmacy">허브 약국</button>
+          <button class="tab-btn" data-shop-tab="upgrade">장비·쉼터</button>
+          <button class="tab-btn" data-shop-tab="sell">생선 판매</button>
+        </div>
+        <div class="modal-body" id="shop-list"></div>
+      </div>
+    </div>
+
+    <!-- ========= 모달: 마을 낚시터 미니게임 ========= -->
+    <div class="modal-backdrop hidden" id="modal-fishing">
+      <div class="rpg-panel modal-window modal-narrow">
+        <div class="modal-header">
+          <h2 class="title-serif">🎣 마을 낚시터</h2>
+          <button class="close-btn" data-close="modal-fishing">✕</button>
+        </div>
+        <div class="modal-body fishing-body">
+          <div class="pond-stage" id="pond-stage">
+            <div class="pond-ripples"></div>
+            <div class="pond-bobber" id="pond-bobber">🔴</div>
+            <div class="pond-alert hidden" id="pond-alert">!</div>
+            <div class="pond-status" id="pond-status">낚싯대를 드리워 고양이 간식을 낚아보세요!</div>
+          </div>
+          <div class="fishing-gauge-wrap hidden" id="fishing-gauge-wrap">
+            <div class="toy-bar fishing-bar">
+              <div class="toy-zone" id="fish-zone"></div>
+              <div class="toy-cursor" id="fish-cursor"></div>
+            </div>
+          </div>
+          <div class="fishing-actions">
+            <button class="rpg-btn primary-btn big-btn" id="btn-fish-action">🎣 찌 던지기</button>
+          </div>
+          <div class="fishing-bag" id="fishing-bag">보유 생선: 피라미 0 · 송어 0 · 황금 잉어 0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========= 모달: 고양이 도감 (12종) ========= -->
+    <div class="modal-backdrop hidden" id="modal-dex">
+      <div class="rpg-panel modal-window modal-wide">
+        <div class="modal-header">
+          <h2 class="title-serif">📖 고양이 도감</h2>
+          <div class="modal-header-meta">
+            <span id="dex-progress">0 / 12 수집</span>
+            <button class="close-btn" data-close="modal-dex">✕</button>
+          </div>
+        </div>
+        <div class="modal-body dex-grid" id="dex-grid"></div>
+      </div>
+    </div>
+
+    <!-- ========= 모달: 광장 게시판 의뢰 ========= -->
+    <div class="modal-backdrop hidden" id="modal-quest">
+      <div class="rpg-panel modal-window">
+        <div class="modal-header">
+          <h2 class="title-serif">📜 마을 광장 게시판</h2>
+          <button class="close-btn" data-close="modal-quest">✕</button>
+        </div>
+        <div class="modal-body" id="quest-list"></div>
+      </div>
+    </div>
+
+    <!-- ========= 모달: 조작법 & 설정 ========= -->
+    <div class="modal-backdrop hidden" id="modal-help">
+      <div class="rpg-panel modal-window modal-narrow">
+        <div class="modal-header">
+          <h2 class="title-serif">❓ 플레이 가이드</h2>
+          <button class="close-btn" data-close="modal-help">✕</button>
+        </div>
+        <div class="modal-body help-body">
+          <div class="help-section">
+            <h3>🎮 조작 방법 (PC & 모바일)</h3>
+            <ul>
+              <li><strong>이동</strong>: PC는 <code>WASD / 화살표</code> 또는 <code>화면 클릭</code>, 모바일은 <code>화면 터치</code> 또는 <code>좌하단 조이스틱</code></li>
+              <li><strong>살금살금</strong>: <code>Shift</code> 또는 우하단 <code>🐾 살금</code> 버튼 — 야생 고양이 경계도가 덜 오릅니다!</li>
+              <li><strong>포획 요령</strong>: 간식(멸치·생선·캣닙)과 깃털 낚시대로 <strong>친밀도를 100%</strong>로 채운 뒤 <strong>🧺 이동 바구니</strong>를 사용하세요.</li>
+              <li><strong>희귀·전설 고양이</strong>: 우상단에서 <strong>밤 / 비</strong>로 바꾸거나 명성을 올리면 특별한 고양이가 나타납니다!</li>
+            </ul>
+          </div>
+          <div class="help-section">
+            <h3>🏠 건물 입장 및 시설 안내</h3>
+            <ul>
+              <li><strong>건물 내부 입장</strong>: 각 건물의 <strong>문 앞 금빛 발판</strong>으로 걸어가거나 건물을 클릭하면 <strong>실내로 직접 입장</strong>할 수 있습니다!</li>
+              <li><strong>고양이 쉼터(북서)</strong>: 실내로 들어가 입양한 고양이들을 직접 쓰다듬고 간식을 주거나, 관리장부에서 동행 고양이를 지정하세요.</li>
+              <li><strong>사료 상점(북동)</strong>: 실내 카운터에서 간식·캣닙 구매, 고급 바구니·쉼터 증축, 물고기 판매</li>
+              <li><strong>고양이 장난감 상점(서남)</strong>: 실내 공방에서 무지개 털실 공, 쥐돌이 인형, 깃털 장난감 구매</li>
+              <li><strong>고양이 병원 & 약국(남서·남쪽)</strong>: 병원에서 건강검진·회복실 케어·전문 그루밍, 바로 옆 약국에서 특제 캣닙·진정 허브 엘릭서 조제</li>
+              <li><strong>마을 낚시터(남동)</strong>: 나무 부두 위에서 낚시 미니게임, 오두막 안에서는 어획물 손질·판매</li>
+              <li><strong>중앙 광장(중앙)</strong>: 게시판에서 마을 의뢰 수령 및 다양한 고양이 출몰 구역</li>
+            </ul>
+          </div>
+          <div class="help-footer">
+            <button class="rpg-btn danger-btn" id="btn-reset-save">저장 데이터 초기화</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 첫 시작 환영 오버레이 -->
+    <div class="modal-backdrop" id="modal-intro">
+      <div class="rpg-panel modal-window modal-narrow intro-card">
+        <div class="intro-hero">
+          <div class="intro-emblem">
+            <img src="assets/cats/cheese_tabby.png" alt="치즈 태비" />
+            <img src="assets/cats/golden_knight.png" alt="황금 기사 고양이" />
+            <img src="assets/cats/starlight_twintail.png" alt="쌍꼬리 별빛 고양이" />
+          </div>
+          <h1 class="title-serif intro-title">냥이가르드</h1>
+          <p class="intro-sub">클래식 쿼터뷰 2.5D 고양이 포획·수집·육성 프로토타입</p>
+        </div>
+        <div class="intro-body">
+          <div class="intro-points">
+            <div>🐾 <strong>12종의 오리지널 고양이</strong>를 시간·날씨에 맞춰 발견하고 교감하세요</div>
+            <div>🎣 <strong>낚시터·상점·광장·쉼터</strong>가 모두 연결된 중세 판타지 마을</div>
+            <div>📱 <strong>PC & 모바일 가로형</strong> 모두 터치·조이스틱·키보드로 즉시 플레이</div>
+          </div>
+          <button class="rpg-btn primary-btn big-btn" id="btn-start-game">마을로 입장하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 모바일 세로 감지 시 가로 모드 전환 안내 오버레이 (회전 잠금 시 강제 가로 모드 지원!) -->
+  <div id="rotate-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="가로 모드 안내">
+    <div class="rpg-panel rotate-card">
+      <div class="rotate-phone-wrap" aria-hidden="true">
+        <div class="rotate-phone">
+          <div class="rotate-screen">🐾</div>
+        </div>
+      </div>
+      <h2 class="title-serif rotate-title">가로 화면으로 플레이하세요</h2>
+      <p class="rotate-desc">
+        스마트폰을 <strong>가로로 회전</strong>하면 넓은 마을과 조이스틱을 쾌적하게 즐길 수 있어요!
+      </p>
+      <div class="rotate-actions">
+        <button class="rpg-btn primary-btn big-btn" id="btn-force-landscape">📱 자동 회전 없이 가로 모드로 시작</button>
+        <button class="rpg-btn rotate-sub-btn" id="btn-dismiss-rotate">세로 화면으로 계속하기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/data.js?v=20261124_p6"></script>
+  <script src="js/sound.js?v=20261124_p6"></script>
+  <script src="js/cat_rig.js?v=20261124_p6"></script>
+  <script src="js/interiors.js?v=20261124_p6"></script>
+  <script src="js/game.js?v=20261124_p6"></script>
+</body>
+</html>

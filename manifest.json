@@ -1,0 +1,10 @@
+{
+  "name": "냥이가르드",
+  "short_name": "냥이가르드",
+  "description": "클래식 쿼터뷰 2.5D 고양이 포획·수집·육성 RPG",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#3d4317",
+  "theme_color": "#282219"
+}
